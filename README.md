@@ -10,7 +10,7 @@
 | Nome | Git User |
 | --- | --- |
 | Gustavo Martins | gustavohoml |
-| XXX | XXX |
+| David Pinheiro | XXX |
 
 ## Sobre o projeto
 

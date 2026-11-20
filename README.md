@@ -41,22 +41,25 @@ A estrutura abaixo é a **organização planejada** para o repositório. Ela pod
 
 ```text
 .
+├── enunciado/
+├── exemplos/                    # exemplos fornecidos pelo professor
+├── gerado/                      # arquivos Python gerados (quando aplicável)
+├── orqlang-kit/                 # arquivos restantes da pasta disponibilizada pelo professor
+├── runtime/
+│   ├── __init__.py
+│   ├── servicos.py
+│   └── orqlang_runtime.py       # auxiliar para o bônus
+├── testes/                      # testes e saídas esperadas do kit
 ├── transpilador/
 │   ├── __init__.py
 │   ├── lexer.py
 │   ├── parser.py
 │   ├── ast_nodes.py
 │   ├── generator.py
-│   └── main.py
-├── runtime/
-│   ├── __init__.py
-│   ├── servicos.py
-│   └── orqlang_runtime.py       # auxiliar para o bônus
-├── exemplos/                    # exemplos fornecidos pelo professor
-├── testes/                      # testes e saídas esperadas do kit
-├── gerado/                      # arquivos Python gerados (quando aplicável)
-├── requirements.txt
-└── README.md
+│   └── main.py                     
+├── .gitignore
+├── README.md
+└── requirements.txt
 ```
 
 O kit original também inclui `docs/servicos.md`, com documentação dos serviços. Os arquivos fornecidos pelo professor devem ser preservados.

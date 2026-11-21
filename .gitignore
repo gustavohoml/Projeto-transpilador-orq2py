@@ -1,3 +1,7 @@
+# Arquivos gerados pelo PLY
+parsetab.py
+parser.out
+
 # Cache do Python
 __pycache__/
 *.py[cod]

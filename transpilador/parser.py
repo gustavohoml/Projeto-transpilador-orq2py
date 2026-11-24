@@ -9,7 +9,11 @@ from .ast_nodes import (
     Identificador,
     Numero,
     String,
-    Booleano
+    Booleano,
+    Binaria,
+    Unaria,
+    Condicional,
+    Repeticao
 )
 
 # GRAMÁTICA BÁSICA
@@ -110,6 +114,50 @@ def p_expr_booleano(p):
             | FALSO'''
     p[0] = Booleano(valor=(p[1] == 'VERDADEIRO'))
 
+# EXTENSÕES DA GRAMATICA
+
+# CONDICIONAL
+def p_comando_se(p):
+    'comando : SE expr ENTAO comandos FIM'
+    p[0] = Condicional(condicao=p[2], entao=p[4])
+
+def p_comando_se_senao(p):
+    'comando : SE expr ENTAO comandos SENAO comandos FIM'
+    p[0] = Condicional(condicao=p[2], entao=p[4], senao=p[6])
+
+#REPETIÇÃO
+def p_comando_repita(p):
+    'comando : REPITA expr VEZES comandos FIM'
+    p[0] = Repeticao(quantidade=p[2], comandos=p[4])
+
+#EXPRESSÕES
+precedence = (
+    ('nonassoc', 'IGUAL', 'DIFERENTE', 'MENOR', 'MAIOR', 'MENOR_IGUAL', 'MAIOR_IGUAL'),
+    ('left', 'MAIS', 'MENOS'),
+    ('left', 'ASTERISCO', 'BARRA'),
+    ('right', 'UMENOS'),
+)
+
+def p_expr_binaria(p):
+    '''expr : expr MAIS expr
+            | expr MENOS expr
+            | expr ASTERISCO expr
+            | expr BARRA expr
+            | expr IGUAL expr
+            | expr DIFERENTE expr
+            | expr MENOR expr
+            | expr MAIOR expr
+            | expr MENOR_IGUAL expr
+            | expr MAIOR_IGUAL expr'''
+    p[0] = Binaria(esquerda=p[1], operador=p[2], direita=p[3])
+
+def p_expr_unaria(p):
+    'expr : MENOS expr %prec UMENOS'
+    p[0] = Unaria(operador='-', operando=p[2])
+
+def p_expr_parenteses(p):
+    'expr : ABRE_PARENTESES expr FECHA_PARENTESES'
+    p[0] = p[2]
 
 # TRATAMENTO DE ERROS
 
@@ -255,12 +303,264 @@ if __name__ == "__main__":
             "17. Caractere ilegal",
             "INICIO VAR x = 10 @ FIM",
             False
+        ),
+
+        # EXPRESSOES: o 4o elemento (opcional) e a AST esperada,
+        # para conferir precedencia e associatividade, nao so se aceita.
+        (
+            "18. Precedencia: * antes de +",
+            "INICIO IMPRIMIR 2 + 3 * 4 FIM",
+            True,
+            Binaria(Numero(2), '+', Binaria(Numero(3), '*', Numero(4)))
+        ),
+        (
+            "19. Parenteses mudam a precedencia",
+            "INICIO IMPRIMIR (2 + 3) * 4 FIM",
+            True,
+            Binaria(Binaria(Numero(2), '+', Numero(3)), '*', Numero(4))
+        ),
+        (
+            "20. Associatividade a esquerda na subtracao",
+            "INICIO IMPRIMIR 10 - 3 - 2 FIM",
+            True,
+            Binaria(Binaria(Numero(10), '-', Numero(3)), '-', Numero(2))
+        ),
+        (
+            "21. Associatividade a esquerda na divisao",
+            "INICIO IMPRIMIR 8 / 4 / 2 FIM",
+            True,
+            Binaria(Binaria(Numero(8), '/', Numero(4)), '/', Numero(2))
+        ),
+        (
+            "22. Menos unario antes da multiplicacao",
+            "INICIO IMPRIMIR -2 * 3 FIM",
+            True,
+            Binaria(Unaria('-', Numero(2)), '*', Numero(3))
+        ),
+        (
+            "23. Menos unario seguido de soma",
+            "INICIO IMPRIMIR -5 + 8 FIM",
+            True,
+            Binaria(Unaria('-', Numero(5)), '+', Numero(8))
+        ),
+        (
+            "24. Menos unario em parenteses e variavel",
+            "INICIO IMPRIMIR -(2 + 3) - -x FIM",
+            True,
+            Binaria(
+                Unaria('-', Binaria(Numero(2), '+', Numero(3))),
+                '-',
+                Unaria('-', Identificador('x'))
+            )
+        ),
+        (
+            "25. Comparacao tem a menor precedencia",
+            "INICIO IMPRIMIR x + 1 >= 2 * y FIM",
+            True,
+            Binaria(
+                Binaria(Identificador('x'), '+', Numero(1)),
+                '>=',
+                Binaria(Numero(2), '*', Identificador('y'))
+            )
+        ),
+        (
+            "26. Todos os operadores de comparacao",
+            '''
+            INICIO
+            IMPRIMIR a == b
+            IMPRIMIR a != b
+            IMPRIMIR a < b
+            IMPRIMIR a <= b
+            IMPRIMIR a > b
+            IMPRIMIR a >= b
+            FIM
+            ''',
+            True
+        ),
+        (
+            "27. Expressoes em VAR e argumentos de SERVICO",
+            '''
+            INICIO
+            VAR total = preco * quantidade - 10
+            SERVICO aplicar_desconto(total / 2, (5 + 5) * 2) -> final
+            FIM
+            ''',
+            True
+        ),
+        (
+            "28. Comparacao encadeada (proibida)",
+            "INICIO IMPRIMIR 1 < x < 10 FIM",
+            False
+        ),
+        (
+            "29. Operador sem operando a direita",
+            "INICIO VAR x = 1 + FIM",
+            False
+        ),
+        (
+            "30. Operador sem operando a esquerda",
+            "INICIO IMPRIMIR * 2 FIM",
+            False
+        ),
+        (
+            "31. Parentese nao fechado",
+            "INICIO IMPRIMIR (2 + 3 FIM",
+            False
+        ),
+        (
+            "32. Parenteses vazios",
+            "INICIO IMPRIMIR () FIM",
+            False
+        ),
+
+        # CONDICIONAL
+        (
+            "33. SE sem SENAO",
+            '''
+            INICIO
+            SE x > 10 ENTAO
+                IMPRIMIR "grande"
+            FIM
+            FIM
+            ''',
+            True
+        ),
+        (
+            "34. SE com SENAO",
+            '''
+            INICIO
+            SE ativo ENTAO
+                IMPRIMIR "ativo"
+            SENAO
+                IMPRIMIR "inativo"
+            FIM
+            FIM
+            ''',
+            True
+        ),
+        (
+            "35. SE aninhado: SENAO pertence ao SE mais proximo",
+            '''
+            INICIO
+            SE a ENTAO
+                SE b ENTAO
+                    IMPRIMIR 1
+                SENAO
+                    IMPRIMIR 2
+                FIM
+            FIM
+            FIM
+            ''',
+            True
+        ),
+        (
+            "36. SE aninhado nos dois ramos",
+            '''
+            INICIO
+            SE a ENTAO
+                SE b ENTAO IMPRIMIR 1 FIM
+            SENAO
+                SE c ENTAO IMPRIMIR 2 SENAO IMPRIMIR 3 FIM
+            FIM
+            FIM
+            ''',
+            True
+        ),
+        (
+            "37. SE sem ENTAO",
+            "INICIO SE x > 1 IMPRIMIR x FIM FIM",
+            False
+        ),
+        (
+            "38. SE sem FIM",
+            "INICIO SE x > 1 ENTAO IMPRIMIR x FIM",
+            False
+        ),
+        (
+            "39. SE com bloco vazio",
+            "INICIO SE x ENTAO FIM FIM",
+            False
+        ),
+        (
+            "40. SENAO com bloco vazio",
+            "INICIO SE x ENTAO IMPRIMIR 1 SENAO FIM FIM",
+            False
+        ),
+        (
+            "41. SE sem condicao",
+            "INICIO SE ENTAO IMPRIMIR 1 FIM FIM",
+            False
+        ),
+        (
+            "42. SENAO solto, sem SE",
+            "INICIO IMPRIMIR 1 SENAO IMPRIMIR 2 FIM",
+            False
+        ),
+
+        # REPETICAO
+        (
+            "43. REPITA com numero",
+            '''
+            INICIO
+            REPITA 3 VEZES
+                IMPRIMIR "Executando"
+            FIM
+            FIM
+            ''',
+            True
+        ),
+        (
+            "44. REPITA com expressao e reatribuicao",
+            '''
+            INICIO
+            VAR i = 1
+            REPITA n * 2 VEZES
+                SERVICO registrar_log("Execucao") -> ok
+                IMPRIMIR i
+                VAR i = i + 1
+            FIM
+            FIM
+            ''',
+            True
+        ),
+        (
+            "45. REPITA aninhado com SE dentro",
+            '''
+            INICIO
+            REPITA 2 VEZES
+                REPITA 3 VEZES
+                    SE i > 1 ENTAO IMPRIMIR i SENAO IMPRIMIR 0 FIM
+                FIM
+            FIM
+            FIM
+            ''',
+            True
+        ),
+        (
+            "46. REPITA sem VEZES",
+            "INICIO REPITA 3 IMPRIMIR 1 FIM FIM",
+            False
+        ),
+        (
+            "47. REPITA sem FIM",
+            "INICIO REPITA 3 VEZES IMPRIMIR 1 FIM",
+            False
+        ),
+        (
+            "48. REPITA sem contagem",
+            "INICIO REPITA VEZES IMPRIMIR 1 FIM FIM",
+            False
+        ),
+        (
+            "49. REPITA com bloco vazio",
+            "INICIO REPITA 3 VEZES FIM FIM",
+            False
         )
     ]
 
     aprovados = 0
 
-    for nome, codigo, deve_aceitar in testes:
+    for nome, codigo, deve_aceitar, *arvore_esperada in testes:
         print("\n" + "=" * 60)
         print(nome)
         print("=" * 60)
@@ -271,9 +571,17 @@ if __name__ == "__main__":
 
             passou = deve_aceitar
 
+            # Se o teste traz a AST esperada, compara a expressao
+            # do primeiro comando (IMPRIMIR) com ela
+            if passou and arvore_esperada:
+                obtida = resultado.comandos[0].expressao
+                if obtida != arvore_esperada[0]:
+                    print(f"ARVORE ESPERADA: {arvore_esperada[0]}")
+                    passou = False
+
         except SyntaxError as erro:
             print(f"ERRO: {erro}")
-            # passou = not deve_aceitar
+            passou = not deve_aceitar
 
         if passou:
             print("STATUS: APROVADO")

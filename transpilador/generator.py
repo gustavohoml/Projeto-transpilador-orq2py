@@ -9,11 +9,14 @@ from .ast_nodes import (
     Identificador,
     Binaria,
     Unaria,
+    Condicional,
 )
 
 CABECALHO = "from runtime.servicos import *"
 
-def gerar_expr(expr) -> str:
+def gerar_expr(expr, nivel: int = 0) -> str:
+    indentacao = "    " * nivel
+
     if isinstance(expr, Numero):
         return repr(expr.valor)
 
@@ -44,15 +47,32 @@ def gerar_chamada(servico: Servico) -> str:
         return f"{servico.destino.nome} = {chamada}"
     return chamada
 
-def gerar_comando(comando) -> str:
+def gerar_comando(comando, nivel: int = 0) -> str:
+    indentacao = "    " * nivel
+
     if isinstance(comando, Atribuicao):
-        return f"{comando.nome.nome} = {gerar_expr(comando.valor)}"
+        return f"{indentacao}{comando.nome.nome} = {gerar_expr(comando.valor)}"
 
     if isinstance(comando, Imprimir):
-        return f"print({gerar_expr(comando.expressao)})"
+        return f"{indentacao}print({gerar_expr(comando.expressao)})"
 
     if isinstance(comando, Servico):
-        return gerar_chamada(comando)
+        return indentacao + gerar_chamada(comando)
+
+    if isinstance(comando, Condicional):
+        condicao = gerar_expr(comando.condicao)
+        linhas = [f"{indentacao}if {condicao}:"]
+
+        for interno in comando.entao:
+            linhas.append(gerar_comando(interno, nivel + 1))
+
+        if comando.senao is not None:
+            linhas.append(f"{indentacao}else:")
+
+            for interno in comando.senao:
+                linhas.append(gerar_comando(interno, nivel + 1))
+
+        return "\n".join(linhas)
 
     raise TypeError(f"Comando desconhecido: {comando!r}")
 
@@ -72,19 +92,26 @@ if __name__ == "__main__":
 
     codigo = '''
     INICIO
-    VAR x = 2 + 3 * 4
-    VAR nome = "Ana"
-    VAR ativo = VERDADEIRO
-    VAR y = -x / 2
-    IMPRIMIR x >= 10
-    IMPRIMIR nome
-    SERVICO registrar_log("Inicio")
-    SERVICO buscar_usuario(1) -> usuario
-    SERVICO buscar_preco(10) -> preco
-    SERVICO calcular_total(preco, x - 10) -> total
-    SERVICO aplicar_desconto(total, (5 + 5) * 1) -> final
-    IMPRIMIR usuario
-    IMPRIMIR final
+    VAR x = 10
+
+    SE x > 5 ENTAO
+        IMPRIMIR "Maior que 5"
+
+        SE x == 10 ENTAO
+            IMPRIMIR "Igual a 10"
+        SENAO
+            IMPRIMIR "Diferente de 10"
+        FIM
+
+    SENAO
+        IMPRIMIR "Menor ou igual a 5"
+    FIM
+
+    SE x > 0 ENTAO
+        IMPRIMIR "Positivo"
+    FIM
+
+    IMPRIMIR "Finalizado"
     FIM
     '''
 
